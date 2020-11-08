@@ -15,6 +15,11 @@ void doc::set_org_img(Bitmap^ img) {
 	orgImg = img;
 }
 
+// Remove origin image
+void doc::del_org_img() {
+	delete orgImg;
+}
+
 // Set the last choosen operation
 void doc::set_chioce(int choosen) {
 	choice = choosen;

@@ -16,13 +16,18 @@ private:
 	Bitmap^ orgImg;
 
 public:
-	doc()
-	{
+	doc() {
 		choice = 0;
+	}
+	~doc() {
+		//delete orgImg;
 	}
 
 	// Set the original image of the documentory
 	void set_org_img(Bitmap^);
+
+	// Remove origin image
+	void del_org_img();
 
 	// Set the last choosen operation
 	void set_chioce(int);

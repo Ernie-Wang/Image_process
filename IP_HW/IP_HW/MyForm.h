@@ -4,6 +4,8 @@
 #include "doc.h"
 
 const int BOX_MARGIN = 10;
+const int Q_SIZE = 20;
+const int KERNEL_SIZE = 3;
 int pic_box_size[2];											// [row, col], [height, width]
 
 namespace IPHW {
@@ -50,9 +52,11 @@ namespace IPHW {
 	private: System::Windows::Forms::SaveFileDialog^  saveFileDialog1;
 	private: System::Windows::Forms::OpenFileDialog^  openFileDialog1;
 	private: System::Windows::Forms::Button^  button2;
-	private: System::Windows::Forms::Button^  button3;
+	private: System::Windows::Forms::Button^  undo_b;
+
 	private: System::Windows::Forms::ComboBox^  comboBox2;
-	private: System::Windows::Forms::NumericUpDown^  numericUpDown1;
+	private: System::Windows::Forms::NumericUpDown^  threshold;
+
 	private: System::Windows::Forms::GroupBox^  crtlBox;
 
 
@@ -65,7 +69,8 @@ namespace IPHW {
 	private: array < System::Windows::Forms::Label^ >^  picBoxLab;				// Used to store picBoxLab array
 	private: array < Bitmap^ >^  imgArr;										// Used to store picBoxLab array, 0 for origin
 	private: Bitmap^ orgImg;													// Used to store origin image
-	private: System::Collections::Generic::Queue< doc^ >  docs;					// Used to store picBoxLab array, 0 for origin
+	private: System::Collections::Generic::List< doc^ >  docs;					// Used to store picBoxLab array, 0 for origin
+
 
 
 
@@ -91,13 +96,13 @@ namespace IPHW {
 			this->saveFileDialog1 = (gcnew System::Windows::Forms::SaveFileDialog());
 			this->openFileDialog1 = (gcnew System::Windows::Forms::OpenFileDialog());
 			this->button2 = (gcnew System::Windows::Forms::Button());
-			this->button3 = (gcnew System::Windows::Forms::Button());
+			this->undo_b = (gcnew System::Windows::Forms::Button());
 			this->comboBox2 = (gcnew System::Windows::Forms::ComboBox());
-			this->numericUpDown1 = (gcnew System::Windows::Forms::NumericUpDown());
+			this->threshold = (gcnew System::Windows::Forms::NumericUpDown());
 			this->crtlBox = (gcnew System::Windows::Forms::GroupBox());
 			this->label1 = (gcnew System::Windows::Forms::Label());
 			this->resultBox = (gcnew System::Windows::Forms::GroupBox());
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown1))->BeginInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->threshold))->BeginInit();
 			this->crtlBox->SuspendLayout();
 			this->SuspendLayout();
 			// 
@@ -148,17 +153,17 @@ namespace IPHW {
 			this->button2->UseVisualStyleBackColor = true;
 			this->button2->Click += gcnew System::EventHandler(this, &MyForm::button2_Click);
 			// 
-			// button3
+			// undo_b
 			// 
-			this->button3->Font = (gcnew System::Drawing::Font(L"Arial", 14.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+			this->undo_b->Font = (gcnew System::Drawing::Font(L"Arial", 14.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->button3->Location = System::Drawing::Point(17, 288);
-			this->button3->Name = L"button3";
-			this->button3->Size = System::Drawing::Size(64, 39);
-			this->button3->TabIndex = 5;
-			this->button3->Text = L"Undo";
-			this->button3->UseVisualStyleBackColor = true;
-			this->button3->Click += gcnew System::EventHandler(this, &MyForm::button3_Click);
+			this->undo_b->Location = System::Drawing::Point(17, 288);
+			this->undo_b->Name = L"undo_b";
+			this->undo_b->Size = System::Drawing::Size(64, 39);
+			this->undo_b->TabIndex = 5;
+			this->undo_b->Text = L"Undo";
+			this->undo_b->UseVisualStyleBackColor = true;
+			this->undo_b->Click += gcnew System::EventHandler(this, &MyForm::Undo_Click);
 			// 
 			// comboBox2
 			// 
@@ -176,26 +181,27 @@ namespace IPHW {
 			this->comboBox2->Text = L"Hold Image";
 			this->comboBox2->SelectedIndexChanged += gcnew System::EventHandler(this, &MyForm::comboBox2_SelectedIndexChanged);
 			// 
-			// numericUpDown1
+			// threshold
 			// 
-			this->numericUpDown1->Font = (gcnew System::Drawing::Font(L"Arial", 15.75F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+			this->threshold->Font = (gcnew System::Drawing::Font(L"Arial", 15.75F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->numericUpDown1->Location = System::Drawing::Point(145, 166);
-			this->numericUpDown1->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-			this->numericUpDown1->Name = L"numericUpDown1";
-			this->numericUpDown1->Size = System::Drawing::Size(69, 32);
-			this->numericUpDown1->TabIndex = 7;
-			this->numericUpDown1->Tag = L"";
+			this->threshold->Location = System::Drawing::Point(145, 166);
+			this->threshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+			this->threshold->Name = L"threshold";
+			this->threshold->Size = System::Drawing::Size(69, 32);
+			this->threshold->TabIndex = 7;
+			this->threshold->Tag = L"";
+			this->threshold->ValueChanged += gcnew System::EventHandler(this, &MyForm::NumericUpDown1_ValueChanged);
 			// 
 			// crtlBox
 			// 
 			this->crtlBox->BackColor = System::Drawing::SystemColors::Control;
 			this->crtlBox->Controls->Add(this->label1);
 			this->crtlBox->Controls->Add(this->comboBox1);
-			this->crtlBox->Controls->Add(this->button3);
+			this->crtlBox->Controls->Add(this->undo_b);
 			this->crtlBox->Controls->Add(this->comboBox2);
 			this->crtlBox->Controls->Add(this->button2);
-			this->crtlBox->Controls->Add(this->numericUpDown1);
+			this->crtlBox->Controls->Add(this->threshold);
 			this->crtlBox->Controls->Add(this->button1);
 			this->crtlBox->Font = (gcnew System::Drawing::Font(L"Arial", 20.25F, static_cast<System::Drawing::FontStyle>((System::Drawing::FontStyle::Bold | System::Drawing::FontStyle::Italic)),
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(0)));
@@ -237,6 +243,7 @@ namespace IPHW {
 			this->AccessibleRole = System::Windows::Forms::AccessibleRole::MenuBar;
 			this->AutoScaleDimensions = System::Drawing::SizeF(6, 12);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
+			this->AutoScroll = true;
 			this->ClientSize = System::Drawing::Size(1484, 861);
 			this->Controls->Add(this->resultBox);
 			this->Controls->Add(this->crtlBox);
@@ -244,7 +251,7 @@ namespace IPHW {
 			this->Name = L"MyForm";
 			this->Tag = L"";
 			this->Text = L"Display";
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown1))->EndInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->threshold))->EndInit();
 			this->crtlBox->ResumeLayout(false);
 			this->crtlBox->PerformLayout();
 			this->ResumeLayout(false);
@@ -257,35 +264,31 @@ namespace IPHW {
 	private: System::Void comboBox1_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
 	private: System::Void openFileDialog1_FileOk(System::Object^  sender, System::ComponentModel::CancelEventArgs^  e) {}
 	private: System::Void MyForm_Load(System::Object^  sender, System::EventArgs^  e) {}
-	private: System::Void button3_Click(System::Object^  sender, System::EventArgs^  e) {}
+	private: System::Void Undo_Click(System::Object^  sender, System::EventArgs^  e);
 	private: System::Void comboBox2_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {}
 	private: System::Void textBox1_TextChanged(System::Object^  sender, System::EventArgs^  e) {}
 	private: System::Void groupBox1_Enter(System::Object^  sender, System::EventArgs^  e) {}
 	private: System::Void label1_Click(System::Object^  sender, System::EventArgs^  e) {
 	}
+	private: System::Void NumericUpDown1_ValueChanged(Object^ sender, EventArgs^ e);
+
+	private: System::Void addHistory(System::Object^  sender, System::EventArgs^  e);
+	private: System::Void resetInterface(System::Object^  sender, System::EventArgs^  e, int choice);			// Reset Interface
+	private: System::Void operation(System::Object^  sender, System::EventArgs^  e, int choice);				// Do Operation
+
+	// Operations
+	private: System::Void RGB(System::Object^  sender, System::EventArgs^  e);									// RGB Extraction
+	private: System::Void Gray(System::Object^  sender, System::EventArgs^  e);									// Gray Extraction
+	private: System::Void Mean_F(System::Object^  sender, System::EventArgs^  e);								// Mean Filter
+	private: System::Void Median_F(System::Object^  sender, System::EventArgs^  e);								// Median Filter
+	private: System::Void Thres_F(System::Object^  sender, System::EventArgs^  e);								// Threshold Filter
+	private: System::Void Histo(System::Object^  sender, System::EventArgs^  e);								// Get histogram
+	private: System::Void Histo_Eq(System::Object^  sender, System::EventArgs^  e);								// Calculate histogram equalization
+	private: System::Void V_Sob(System::Object^  sender, System::EventArgs^  e);								// Vertical Sobel Filter
+	private: System::Void H_Sob(System::Object^  sender, System::EventArgs^  e);								// Herizontal Sobel Filter
+	private: System::Void C_Sob(System::Object^  sender, System::EventArgs^  e);								// Combined Filter
+	private: System::Void ovelap(System::Object^  sender, System::EventArgs^  e);								// Overlap original image with combine sobel result
+	private: System::Void regist(System::Object^  sender, System::EventArgs^  e);								// Registration of two image
 }; //public
 
 }
-
-/*
-private: System::Void button2_Click_1(System::Object^ sender, System::EventArgs^  e) {
-	if (Controls->Contains(pictureBox1))
-	{
-		//this->button1->Click -= gcnew System::EventHandler(this->button1_Click);
-		Controls->Remove(pictureBox1);
-		//System::Windows::Forms::Button^ obj = pictureBox1;
-		delete button1;
-	}
-}
-private: System::Void button2_Click(System::Object^  sender, System::EventArgs^  e) {
-
-		SaveFileDialog ^ saveFileDialog1 = gcnew SaveFileDialog();
-		saveFileDialog1->Filter = "JPeg Image|*.jpg|Bitmap Image|*.bmp|Gif Image|*.gif";
-		saveFileDialog1->Title = "Save an Image File";
-
-		if (saveFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
-			String^ sfd = saveFileDialog1->FileName;
-			//pictureBox2->Image->Save(sfd, System::Drawing::Imaging::ImageFormat::Jpeg);
-		} //button
-	};
-	*/

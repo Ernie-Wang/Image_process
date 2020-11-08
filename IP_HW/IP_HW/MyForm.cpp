@@ -1,12 +1,10 @@
 #include "MyForm.h"
 #include <string>
+#include <math.h>
 
 using namespace IPHW;
 
-System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
-	int choice = comboBox1->SelectedIndex;
-	unsigned int dim[] = { 1, 1 };		//Dimention of the picture boxs in results, [rows, cols]
-
+void set_dim(int choice, unsigned int* dim) {
 	// Need to Initial Image boxes for different function
 	switch (choice) {
 	case 0:				// RGB Extraction
@@ -57,6 +55,264 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 	default:			// Not an option
 		break;
 	}
+}
+
+int mean_f[3][3] = { {1, 1, 1}, {1, 1, 1}, {1, 1, 1} };
+int v_sob_f[3][3] = { {1, 0, -1}, {2, 0, -2}, {1, 0, -1} };
+int h_sob_f[3][3] = { {-1, -2, -1}, {0, 0, 0}, {1, 2, 1} };
+
+//		OPERATIONS START
+
+System::Void MyForm::RGB(System::Object^  sender, System::EventArgs^  e) {   // RGB Extraction
+
+	Bitmap^ R_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	Bitmap^ G_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	Bitmap^ B_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++)
+		{
+			Color RGB = orgImg->GetPixel(j, i);
+
+			// Get RGB Extraction
+			R_image->SetPixel(j, i, Color::FromArgb(RGB.R, RGB.R, RGB.R));
+			G_image->SetPixel(j, i, Color::FromArgb(RGB.G, RGB.G, RGB.G));
+			B_image->SetPixel(j, i, Color::FromArgb(RGB.B, RGB.B, RGB.B));
+		}
+	}
+	pictureBox[1]->Image = R_image;
+	pictureBox[2]->Image = G_image;
+	pictureBox[3]->Image = B_image;
+}
+
+System::Void MyForm::Gray(System::Object^  sender, System::EventArgs^  e) {			// Gray Scale
+	Bitmap^ gray_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++)
+		{
+			Color RGB = orgImg->GetPixel(j, i);
+
+			// Change to gray scale using lightness method
+			int c_max = RGB.R;
+			int c_min = RGB.G;
+			if (RGB.G > RGB.R) {
+				c_max = RGB.G;
+				c_min = RGB.R;
+			}
+			else if (RGB.B > c_max)
+				c_max = RGB.B;
+			else if (c_min > RGB.B)
+				c_min = RGB.B;
+
+			int gray_l = (c_max + c_min) / 2;
+
+			gray_image->SetPixel(j, i, Color::FromArgb(gray_l, gray_l, gray_l));
+		}
+	}
+	pictureBox[1]->Image = gray_image;
+}
+
+int conv_kernel(Bitmap^ img, int c_x, int c_y, int filter[3][3], int size) {
+	int result = 0;
+
+	for (int i = (c_x - (int)size / 2); i <= (c_x + (int)size / 2); i++) {
+		for (int j = (c_y - (int)size / 2); j <= (c_y + (int)size / 2); j++) {
+			int w_id = j;
+			if (j < 0 || j >= img->Width)
+				w_id = c_y;
+			int h_id = i;
+			if (i < 0 || i >= img->Height)
+				h_id = c_x;
+			int tmmp = filter[c_x + size - ((int)size / 2) - i - 1][c_y + size - ((int)size / 2) - j - 1];
+			//int tmmp = filter[i - (c_x - (int)size / 2)][j - (c_y - (int)size / 2)];
+			result += tmmp * ((Color^)img->GetPixel(w_id, h_id))->R;
+		}
+	}
+	return result;
+}
+
+System::Void MyForm::Mean_F(System::Object^  sender, System::EventArgs^  e) {
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int value = conv_kernel(orgImg, j, i, mean_f, KERNEL_SIZE);
+			value = value / KERNEL_SIZE / KERNEL_SIZE;
+			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+int median(int* arr, int len) {
+	int ans = -1;
+	for (int i = 0; i < len; i++) {
+		for (int j = (i+1); j < len; j++) {
+			if (arr[i] > arr[j]) {
+				int tmp = arr[i];
+				arr[i] = arr[j];
+				arr[j] = tmp;
+			}
+		}
+	}
+	if (len % 2 == 1) {
+		int a = arr[((int)len / 2)];
+		for (int i = 0; i < len; i++)
+		{
+			int b = arr[i];
+			b = 0;
+		}
+		return a;
+	}
+	else {
+		return (arr[((int)len / 2 - 1)] + arr[(int)len / 2]) / 2;
+	}
+}
+
+System::Void MyForm::Median_F(System::Object^  sender, System::EventArgs^  e) {
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int c_x = 0; c_x < orgImg->Height; c_x++) {
+		for (int c_y = 0; c_y < orgImg->Width; c_y++) {
+			int l_val[KERNEL_SIZE*KERNEL_SIZE] = {};
+			int count = 0;
+			for (int i = (c_x - (int)KERNEL_SIZE / 2); i <= (c_x + (int)KERNEL_SIZE / 2); i++) {
+				for (int j = (c_y - (int)KERNEL_SIZE / 2); j <= (c_y + (int)KERNEL_SIZE / 2); j++) {
+					int w_id = j;
+					if (j < 0 || j >= orgImg->Width)
+						w_id = c_y;
+					int h_id = i;
+					if (i < 0 || i >= orgImg->Height)
+						h_id = c_x;
+					l_val[count] = ((Color^)orgImg->GetPixel(w_id, h_id))->R;
+					count++;
+				}
+			}
+			int value = median(l_val, KERNEL_SIZE*KERNEL_SIZE);
+			f_image->SetPixel(c_y, c_x, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+System::Void MyForm::Histo(System::Object^  sender, System::EventArgs^  e) {								// Get histogram
+}
+
+System::Void MyForm::Histo_Eq(System::Object^  sender, System::EventArgs^  e) {								// Calculate histogram equalization
+}
+
+System::Void MyForm::Thres_F(System::Object^  sender, System::EventArgs^  e) {
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	int thres = (Int16)threshold->Value;
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int value = ((Color^)orgImg->GetPixel(j, i))->R;
+			if (value >= thres)
+				value = 255;
+			else
+				value = 0;
+			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+System::Void MyForm::V_Sob(System::Object^  sender, System::EventArgs^  e) {								// Vertical Sobel Filter
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int value = conv_kernel(orgImg, i, j, v_sob_f, KERNEL_SIZE);
+			if (value < 0)
+				value = 0;
+			if (value > 255)
+				value = 255;
+			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+System::Void MyForm::H_Sob(System::Object^  sender, System::EventArgs^  e) {								// Herizontal Sobel Filter
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int value = conv_kernel(orgImg, i, j, h_sob_f, KERNEL_SIZE);
+			if (value < 0)
+				value = 0;
+			if (value > 255)
+				value = 255;
+			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+System::Void MyForm::C_Sob(System::Object^  sender, System::EventArgs^  e) {								// Combined Filter
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int v_value = conv_kernel(orgImg, i, j, v_sob_f, KERNEL_SIZE);
+			int h_value = conv_kernel(orgImg, i, j, h_sob_f, KERNEL_SIZE);
+			int value = sqrt(pow(v_value, 2) + pow(h_value, 2));
+			if (value < 0)
+				value = 0;
+			if (value > 255)
+				value = 255;
+			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
+		}
+	}
+	pictureBox[1]->Image = f_image;
+}
+
+System::Void MyForm::ovelap(System::Object^  sender, System::EventArgs^  e) {								// Overlap original image with combine sobel result
+}
+System::Void MyForm::regist(System::Object^  sender, System::EventArgs^  e) {								// Registration of two image
+}
+//		OPERATIONS END
+
+System::Void MyForm::operation(System::Object^  sender, System::EventArgs^  e, int choice) {
+	// Decide the correct operation
+	switch (choice) {
+	case 0:				// RGB Extraction
+		RGB(sender, e);
+		break;
+	case 1:				// Gray Scale
+		Gray(sender, e);
+		break;
+	case 2:				// Mean Filter
+		Mean_F(sender, e);
+		break;
+	case 3:				// Median Filter
+		Median_F(sender, e);
+		break;
+	case 4:				// Histogram Equalization
+
+		break;
+	case 5:				// Defined Threshold
+		Thres_F(sender, e);
+		break;
+	case 6:				// V-Sobel Edge
+		V_Sob(sender, e);
+		break;
+	case 7:				// H-Sobel Edge
+		H_Sob(sender, e);
+		break;
+	case 8:				// C-Sobel Edge
+		C_Sob(sender, e);
+		break;
+	case 9:				// Overlap to Origin
+
+		break;
+	case 10:			// Image Registration
+
+		break;
+
+	default:			// Not an option
+		break;
+	}
+}
+
+System::Void MyForm::resetInterface(System::Object^  sender, System::EventArgs^  e, int choice) {			// Reset Interface
+	unsigned int dim[] = { 1, 1 };		//Dimention of the picture boxs in results, [rows, cols]
+
+	set_dim(choice, dim);				// Set the box diameter to correct ones
 
 	int total_box = dim[0] * dim[1];
 
@@ -82,7 +338,7 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 			delete this->imgArr[i];
 		}
 	}
-	
+
 	// Clear all the pointer array
 	delete[] pictureBox;
 	delete[] picBoxLab;
@@ -97,7 +353,7 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 	// Calculate every picture box size
 	pic_box_size[0] = (this->resultBox->Size.Height - (3 * dim[0] + 3) * BOX_MARGIN) / dim[0];
 	pic_box_size[1] = (this->resultBox->Size.Width - (dim[1] + 1) * BOX_MARGIN) / dim[1];
-	
+
 	int p_index = 0;
 	for (int i = 0; i < dim[0]; i++) {
 		for (int j = 0; j < dim[1]; j++) {
@@ -114,10 +370,11 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 			// Set picture box variables
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->pictureBox[p_index]))->BeginInit();
 			//this->pictureBox[p_index]->BackColor = System::Drawing::SystemColors::ActiveCaption;			// FOR DEBUG
-			this->pictureBox[p_index]->Location = System::Drawing::Point(1 * BOX_MARGIN + j * (BOX_MARGIN + pic_box_size[1]), (i+1) * (3*BOX_MARGIN + pic_box_size[0]) - pic_box_size[0]);
+			this->pictureBox[p_index]->Location = System::Drawing::Point(1 * BOX_MARGIN + j * (BOX_MARGIN + pic_box_size[1]), (i + 1) * (3 * BOX_MARGIN + pic_box_size[0]) - pic_box_size[0]);
 			this->pictureBox[p_index]->Name = L"pictureBox";
 			this->pictureBox[p_index]->Size = System::Drawing::Size(pic_box_size[1], pic_box_size[0]);
 			this->pictureBox[p_index]->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
+			this->pictureBox[p_index]->SizeMode = System::Windows::Forms::PictureBoxSizeMode::Zoom;
 			this->pictureBox[p_index]->TabIndex = 0;
 			this->pictureBox[p_index]->TabStop = false;
 			this->resultBox->Controls->Add(this->pictureBox[p_index]);
@@ -128,7 +385,7 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 			this->picBoxLab[p_index]->Font = (gcnew System::Drawing::Font(L"Arial", 18, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
 			this->picBoxLab[p_index]->TextAlign = ContentAlignment::MiddleCenter;
-			this->picBoxLab[p_index]->Location = System::Drawing::Point(1 * BOX_MARGIN + j * (BOX_MARGIN + pic_box_size[1]) + 0.5 *pic_box_size[1] - 60, (i + 1) * (3 * BOX_MARGIN + +pic_box_size[0])  );
+			this->picBoxLab[p_index]->Location = System::Drawing::Point(1 * BOX_MARGIN + j * (BOX_MARGIN + pic_box_size[1]) + 0.5 *pic_box_size[1] - 60, (i + 1) * (3 * BOX_MARGIN + +pic_box_size[0]));
 			this->picBoxLab[p_index]->Name = L"label";
 			this->picBoxLab[p_index]->Size = System::Drawing::Size(120, 27);
 			this->picBoxLab[p_index]->TabIndex = 10;
@@ -144,52 +401,84 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 	if (imgArr[0] != nullptr)
 		pictureBox[0]->Image = orgImg;		// Give first picture box the original image
 
+}
+
+System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+	int choice = comboBox1->SelectedIndex;
+	resetInterface(sender, e, choice);						// Reset Interface
+
 	// Print out combo box status
 	std::string tmp = std::to_string(comboBox1->SelectedIndex);
 	System::String^ tmp2 = gcnew String(tmp.c_str());
 	MessageBox::Show("Change to " + tmp2 + ": " + comboBox1->Text, "Change");
 
+	// Specialties
+	if(choice == 5)
+		threshold->Value = 127;
+
+	if (orgImg != nullptr) {
+		operation(sender, e, choice);						// Select the operation
+		if(docs[docs.Count - 1]->get_chioce() != choice || docs[docs.Count - 1]->get_org_img() != orgImg)
+			addHistory(sender, e);
+	}
 }
 
-System::Void MyForm::button1_Click(System::Object^  sender, System::EventArgs^  e) {
-
-	std::string tmp = std::to_string(comboBox1->SelectedIndex);
-	System::String^ tmp2 = gcnew String(tmp.c_str());
-	MessageBox::Show("Change to " + tmp2 + ": " + comboBox1->Text, "Change");
-	if (openFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) { // 如果成功開檔
-		orgImg = gcnew Bitmap(openFileDialog1->FileName);
-		this->imgArr[0] = orgImg;
-		Bitmap^ temp = gcnew Bitmap(this->imgArr[0]->Width, this->imgArr[0]->Height);
-		//宣告暫存的 Bitmap
-		pictureBox[0]->Image = this->imgArr[0];
-		for (int i = 0; i < temp->Height; i++)
-			for (int j = 0; j < temp->Width; j++) {
-				Color RGB = this->imgArr[0]->GetPixel(j, i);
-				//讀取影像平面上 (j,i) 的 RGB 資訊
-				//這邊要注意因為縱軸座標是 i 橫軸座標是 j 所以要寫成 (j,i) ;
-				int invR = Convert::ToInt32(255 - RGB.R);
-				int invG = Convert::ToInt32(255 - RGB.G);
-				int invB = Convert::ToInt32(255 - RGB.B);
-				//RGB 是VS內建的class 可以直接讀取影像的色彩資訊 R = Red G = Green B =Blue
-
-				temp->SetPixel(j, i, Color::FromArgb(invR, invG, invB));
-			}
-		this->imgArr[1] = temp;
-		pictureBox[1]->Image = temp;
-		pictureBox[2]->Image = this->imgArr[1];
+System::Void MyForm::button1_Click(System::Object^  sender, System::EventArgs^  e) { 
+	if (comboBox1->SelectedIndex < 0)
+		MessageBox::Show("Choose a operation first!!", "Error");
+	else if (openFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) {	// Successfully open files
+		orgImg = gcnew Bitmap(openFileDialog1->FileName);									// Store as origin image
+		this->imgArr[0] = orgImg;															
+		pictureBox[0]->Image = this->imgArr[0];												// Print out the image
+		operation(sender, e, comboBox1->SelectedIndex);										// Select the operation
+		addHistory(sender, e);
 	}
-} //button
+}
 
 System::Void MyForm::button2_Click(System::Object^  sender, System::EventArgs^  e) {
+	if (comboBox2->SelectedIndex < 0)
+		MessageBox::Show("Choose a image first!!", "Error");
+	else {
+		SaveFileDialog ^ saveFileDialog1 = gcnew SaveFileDialog();
+		saveFileDialog1->Filter = "JPeg Image|*.jpg|Bitmap Image|*.bmp|Gif Image|*.gif";
+		saveFileDialog1->Title = "Save an Image File";
 
-	SaveFileDialog ^ saveFileDialog1 = gcnew SaveFileDialog();
-	saveFileDialog1->Filter = "JPeg Image|*.jpg|Bitmap Image|*.bmp|Gif Image|*.gif";
-	saveFileDialog1->Title = "Save an Image File";
+		if (saveFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
+			String^ sfd = saveFileDialog1->FileName;
+			pictureBox[0]->Image->Save(sfd, System::Drawing::Imaging::ImageFormat::Jpeg);
+		}
+	}
+}
 
-	if (saveFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
-		String^ sfd = saveFileDialog1->FileName;
-		//pictureBox2->Image->Save(sfd, System::Drawing::Imaging::ImageFormat::Jpeg);
-	} //button
+System::Void MyForm::Undo_Click(System::Object^  sender, System::EventArgs^  e) {
+	if(docs.Count >= 2) {
+		doc ^tmp = docs[docs.Count - 2];
+		delete docs[docs.Count - 1];
+		docs.RemoveAt(docs.Count - 1);
+		
+		orgImg = tmp->get_org_img();
+		comboBox1->SelectedIndex = tmp->get_chioce();
+		resetInterface(sender, e, tmp->get_chioce());						// Reset Interface
+		operation(sender, e, tmp->get_chioce());						// Select the operation
+	}
+}
+
+System::Void MyForm::NumericUpDown1_ValueChanged(Object^ sender, EventArgs^ e) {
+	if (comboBox1->SelectedIndex == 5 && orgImg != nullptr)
+		operation(sender, e, comboBox1->SelectedIndex);
+}
+
+System::Void MyForm::addHistory(System::Object^  sender, System::EventArgs^  e) {
+	if (docs.Count >= Q_SIZE) {
+		docs[0]->del_org_img();
+		delete docs[0];
+		docs.RemoveAt(0);
+	}
+	// Print out the image
+	doc ^tmp = gcnew doc();
+	tmp->set_chioce(comboBox1->SelectedIndex);
+	tmp->set_org_img(orgImg);
+	docs.Add(tmp);
 }
 
 [STAThreadAttribute]
