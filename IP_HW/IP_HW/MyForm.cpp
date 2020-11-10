@@ -24,8 +24,8 @@ void set_dim(int choice, unsigned int* dim) {
 		dim[1] = 2;				// origin, result
 		break;
 	case 4:				// Histogram Equalization
-		dim[0] = 1;
-		dim[1] = 3;				// origin, result, Histogram
+		dim[0] = 2;
+		dim[1] = 2;				// origin, result, Histogram
 		break;
 	case 5:				// Defined Threshold
 		dim[0] = 1;
@@ -79,9 +79,9 @@ System::Void MyForm::RGB(System::Object^  sender, System::EventArgs^  e) {   // 
 			B_image->SetPixel(j, i, Color::FromArgb(RGB.B, RGB.B, RGB.B));
 		}
 	}
-	pictureBox[1]->Image = R_image;
-	pictureBox[2]->Image = G_image;
-	pictureBox[3]->Image = B_image;
+	imgArr[1] = R_image;
+	imgArr[2] = G_image;
+	imgArr[3] = B_image;
 }
 
 System::Void MyForm::Gray(System::Object^  sender, System::EventArgs^  e) {			// Gray Scale
@@ -108,7 +108,7 @@ System::Void MyForm::Gray(System::Object^  sender, System::EventArgs^  e) {			//
 			gray_image->SetPixel(j, i, Color::FromArgb(gray_l, gray_l, gray_l));
 		}
 	}
-	pictureBox[1]->Image = gray_image;
+	imgArr[1] = gray_image;
 }
 
 int conv_kernel(Bitmap^ img, int c_x, int c_y, int filter[3][3], int size) {
@@ -134,12 +134,12 @@ System::Void MyForm::Mean_F(System::Object^  sender, System::EventArgs^  e) {
 	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
 	for (int i = 0; i < orgImg->Height; i++) {
 		for (int j = 0; j < orgImg->Width; j++) {
-			int value = conv_kernel(orgImg, j, i, mean_f, KERNEL_SIZE);
+			int value = conv_kernel(orgImg, i, j, mean_f, KERNEL_SIZE);
 			value = value / KERNEL_SIZE / KERNEL_SIZE;
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 int median(int* arr, int len) {
@@ -189,10 +189,92 @@ System::Void MyForm::Median_F(System::Object^  sender, System::EventArgs^  e) {
 			f_image->SetPixel(c_y, c_x, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 System::Void MyForm::Histo(System::Object^  sender, System::EventArgs^  e) {								// Get histogram
+	int histo[256] = {};
+
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			histo[((Color^)orgImg->GetPixel(j, i))->R]++;
+		}
+	}
+
+	Bitmap^ histo_i = gcnew Bitmap(pic_box_size[1], pic_box_size[0]);
+	DataVisualization::Charting::Chart^  h_chart = gcnew DataVisualization::Charting::Chart();
+	DataVisualization::Charting::Series^ series1 = gcnew DataVisualization::Charting::Series("histogram");
+	DataVisualization::Charting::ChartArea^ area = h_chart->ChartAreas->Add("area");
+
+	for (int i = 0; i < 256; i++) {
+		series1->Points->AddXY(i, histo[i]);
+	}
+	series1->ChartType = DataVisualization::Charting::SeriesChartType::Column;
+	series1->Color = Color::Blue;
+	series1->ChartArea = area->Name;
+	h_chart->Series->Add(series1);
+	h_chart->Size = System::Drawing::Size(pic_box_size[1], pic_box_size[0]);
+	h_chart->ChartAreas[0]->AxisX->Minimum = 0;
+	h_chart->ChartAreas[0]->AxisX->Maximum = 255;
+	h_chart->ChartAreas[0]->AxisX->Minimum = 0;
+	h_chart->DrawToBitmap(histo_i, h_chart->Bounds);
+
+	imgArr[2] = histo_i;
+	delete series1;
+	delete area;
+	delete h_chart;
+
+	int sum = 0, h_max = -100, h_min = 10000;
+	for (int i = 0; i < 256; i++)
+	{
+		sum += histo[i];
+		if (i != 0)
+			histo[i] += histo[i - 1];
+		if (h_max < histo[i])
+			h_max = histo[i];
+		else if (histo[i] != 0 && h_min > histo[i])
+			h_min = histo[i];
+	}
+
+
+	int h_diff = h_max - h_min;
+	int histo_e[256] = {};
+
+	Bitmap^ histo_eq_i = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			int value = 255 * (histo[((Color^)orgImg->GetPixel(j, i))->R] - h_min) / h_diff;
+			value = round(value);
+
+			histo_eq_i->SetPixel(j, i, Color::FromArgb(value, value, value));
+			histo_e[value]++;
+		}
+	}
+
+	imgArr[1] = histo_eq_i;
+	Bitmap^ histo_e_i = gcnew Bitmap(pic_box_size[1], pic_box_size[0]);
+	h_chart = gcnew DataVisualization::Charting::Chart();
+	series1 = gcnew DataVisualization::Charting::Series("histogram");
+	area = h_chart->ChartAreas->Add("area");
+
+	for (int i = 0; i < 256; i++) {
+		series1->Points->AddXY(i, histo_e[i]);
+	}
+	series1->ChartType = DataVisualization::Charting::SeriesChartType::Column;
+	series1->Color = Color::Blue;
+	series1->ChartArea = area->Name;
+	h_chart->Series->Add(series1);
+	h_chart->Size = System::Drawing::Size(pic_box_size[1], pic_box_size[0]);
+	h_chart->ChartAreas[0]->AxisX->Minimum = 0;
+	h_chart->ChartAreas[0]->AxisX->Maximum = 255;
+	h_chart->ChartAreas[0]->AxisX->Minimum = 0;
+	h_chart->DrawToBitmap(histo_e_i, h_chart->Bounds);
+
+	imgArr[3] = histo_e_i;
+	delete series1;
+	delete area;
+	delete h_chart;
+
 }
 
 System::Void MyForm::Histo_Eq(System::Object^  sender, System::EventArgs^  e) {								// Calculate histogram equalization
@@ -211,7 +293,7 @@ System::Void MyForm::Thres_F(System::Object^  sender, System::EventArgs^  e) {
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 System::Void MyForm::V_Sob(System::Object^  sender, System::EventArgs^  e) {								// Vertical Sobel Filter
@@ -226,7 +308,7 @@ System::Void MyForm::V_Sob(System::Object^  sender, System::EventArgs^  e) {				
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 System::Void MyForm::H_Sob(System::Object^  sender, System::EventArgs^  e) {								// Herizontal Sobel Filter
@@ -241,7 +323,7 @@ System::Void MyForm::H_Sob(System::Object^  sender, System::EventArgs^  e) {				
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 System::Void MyForm::C_Sob(System::Object^  sender, System::EventArgs^  e) {								// Combined Filter
@@ -258,11 +340,35 @@ System::Void MyForm::C_Sob(System::Object^  sender, System::EventArgs^  e) {				
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
 	}
-	pictureBox[1]->Image = f_image;
+	imgArr[1] = f_image;
 }
 
 System::Void MyForm::ovelap(System::Object^  sender, System::EventArgs^  e) {								// Overlap original image with combine sobel result
+	Bitmap^ f_image = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	Bitmap^ mask = gcnew Bitmap(orgImg->Width, orgImg->Height);
+	int thres = (Int16)threshold->Value;
+	for (int i = 0; i < orgImg->Height; i++) {
+		for (int j = 0; j < orgImg->Width; j++) {
+			Color RGB = orgImg->GetPixel(j, i);
+			int v_value = conv_kernel(orgImg, i, j, v_sob_f, KERNEL_SIZE);
+			int h_value = conv_kernel(orgImg, i, j, h_sob_f, KERNEL_SIZE);
+			int value = sqrt(pow(v_value, 2) + pow(h_value, 2));
+
+			if (value >= thres) {
+				value = 255;
+				f_image->SetPixel(j, i, Color::FromArgb(0, value, 0));
+				mask->SetPixel(j, i, Color::FromArgb(value, value, value));
+			}
+			else {
+				f_image->SetPixel(j, i, Color::FromArgb(RGB.R, RGB.G, RGB.B));
+				mask->SetPixel(j, i, Color::FromArgb(0, 0, 0));
+			}
+		}
+	}
+	imgArr[1] = mask;
+	imgArr[2] = f_image;
 }
+
 System::Void MyForm::regist(System::Object^  sender, System::EventArgs^  e) {								// Registration of two image
 }
 //		OPERATIONS END
@@ -283,7 +389,7 @@ System::Void MyForm::operation(System::Object^  sender, System::EventArgs^  e, i
 		Median_F(sender, e);
 		break;
 	case 4:				// Histogram Equalization
-
+		Histo(sender, e);
 		break;
 	case 5:				// Defined Threshold
 		Thres_F(sender, e);
@@ -298,7 +404,7 @@ System::Void MyForm::operation(System::Object^  sender, System::EventArgs^  e, i
 		C_Sob(sender, e);
 		break;
 	case 9:				// Overlap to Origin
-
+		ovelap(sender, e);
 		break;
 	case 10:			// Image Registration
 
@@ -306,6 +412,10 @@ System::Void MyForm::operation(System::Object^  sender, System::EventArgs^  e, i
 
 	default:			// Not an option
 		break;
+	}
+
+	for (int i = 0; i < pictureBox->Length; i++) {
+		pictureBox[i]->Image = imgArr[i];
 	}
 }
 
@@ -335,7 +445,8 @@ System::Void MyForm::resetInterface(System::Object^  sender, System::EventArgs^ 
 	}
 	if (imgArr != nullptr) {
 		for (int i = imgArr->Length - 1; i > 0; i--) {
-			delete this->imgArr[i];
+			if(i != comboBox2->SelectedIndex)
+				delete this->imgArr[i];
 		}
 	}
 
@@ -399,7 +510,7 @@ System::Void MyForm::resetInterface(System::Object^  sender, System::EventArgs^ 
 	this->resultBox->ResumeLayout(false);
 	this->ResumeLayout(false);
 	if (imgArr[0] != nullptr)
-		pictureBox[0]->Image = orgImg;		// Give first picture box the original image
+		pictureBox[0]->Image = imgArr[0];			// Give first picture box the original image
 
 }
 
@@ -408,12 +519,12 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 	resetInterface(sender, e, choice);						// Reset Interface
 
 	// Print out combo box status
-	std::string tmp = std::to_string(comboBox1->SelectedIndex);
-	System::String^ tmp2 = gcnew String(tmp.c_str());
-	MessageBox::Show("Change to " + tmp2 + ": " + comboBox1->Text, "Change");
+	//std::string tmp = std::to_string(comboBox1->SelectedIndex);
+	//System::String^ tmp2 = gcnew String(tmp.c_str());
+	//MessageBox::Show("Change to " + tmp2 + ": " + comboBox1->Text, "Change");
 
 	// Specialties
-	if(choice == 5)
+	if(choice == 5 || choice == 9)
 		threshold->Value = 127;
 
 	if (orgImg != nullptr) {
@@ -423,13 +534,19 @@ System::Void MyForm::comboBox1_SelectedIndexChanged(System::Object^  sender, Sys
 	}
 }
 
+System::Void MyForm::comboBox2_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+	int choice = comboBox2->SelectedIndex;
+	orgImg = imgArr[choice];
+	imgArr[0] = imgArr[choice];
+}
+
 System::Void MyForm::button1_Click(System::Object^  sender, System::EventArgs^  e) { 
 	if (comboBox1->SelectedIndex < 0)
 		MessageBox::Show("Choose a operation first!!", "Error");
 	else if (openFileDialog1->ShowDialog() == System::Windows::Forms::DialogResult::OK) {	// Successfully open files
 		orgImg = gcnew Bitmap(openFileDialog1->FileName);									// Store as origin image
 		this->imgArr[0] = orgImg;															
-		pictureBox[0]->Image = this->imgArr[0];												// Print out the image
+		pictureBox[0]->Image = orgImg;												// Print out the image
 		operation(sender, e, comboBox1->SelectedIndex);										// Select the operation
 		addHistory(sender, e);
 	}
@@ -464,7 +581,7 @@ System::Void MyForm::Undo_Click(System::Object^  sender, System::EventArgs^  e) 
 }
 
 System::Void MyForm::NumericUpDown1_ValueChanged(Object^ sender, EventArgs^ e) {
-	if (comboBox1->SelectedIndex == 5 && orgImg != nullptr)
+	if ((comboBox1->SelectedIndex == 5 || comboBox1->SelectedIndex == 9) && orgImg != nullptr)
 		operation(sender, e, comboBox1->SelectedIndex);
 }
 
