@@ -301,6 +301,7 @@ System::Void MyForm::V_Sob(System::Object^  sender, System::EventArgs^  e) {				
 	for (int i = 0; i < orgImg->Height; i++) {
 		for (int j = 0; j < orgImg->Width; j++) {
 			int value = conv_kernel(orgImg, i, j, v_sob_f, KERNEL_SIZE);
+			value = abs(value);
 			if (value < 0)
 				value = 0;
 			if (value > 255)
@@ -317,6 +318,7 @@ System::Void MyForm::H_Sob(System::Object^  sender, System::EventArgs^  e) {				
 	for (int i = 0; i < orgImg->Height; i++) {
 		for (int j = 0; j < orgImg->Width; j++) {
 			int value = conv_kernel(orgImg, i, j, h_sob_f, KERNEL_SIZE);
+			value = abs(value);
 			if (value < 0)
 				value = 0;
 			if (value > 255)
