@@ -7,6 +7,16 @@ const int BOX_MARGIN = 10;
 const int Q_SIZE = 20;
 const int KERNEL_SIZE = 3;
 int pic_box_size[2];											// [row, col], [height, width]
+int reg_pt[2][4][2] = {};		// Store the registrate point
+int rec_pt = 0;					// Record the point has been select
+float trans_m[3][3] = { {1, 0, 0}, {0, 1, 0}, {0, 0, 1} };
+float theta = 0;
+float scale[2] = {};		// [0] -> x, [1] -> y
+float trans[2] = {};		// [0] -> x, [1] -> y
+float shear[2] = {};		// [0] -> vertical, [1] -> horizontal
+
+float alpha = 1.0;
+
 
 namespace IPHW {
 
@@ -122,10 +132,9 @@ namespace IPHW {
 					L"Median Filter", L"Histogram Equalization", L"Defined Threshold", L"V-Sobel Edge", L"H-Sobel Edge", L"C-Sobel Edge", L"Overlap to Origin",
 					L"Image Registration"
 			});
-			this->comboBox1->Location = System::Drawing::Point(23, 71);
-			this->comboBox1->Margin = System::Windows::Forms::Padding(4);
+			this->comboBox1->Location = System::Drawing::Point(17, 57);
 			this->comboBox1->Name = L"comboBox1";
-			this->comboBox1->Size = System::Drawing::Size(283, 47);
+			this->comboBox1->Size = System::Drawing::Size(213, 40);
 			this->comboBox1->TabIndex = 0;
 			this->comboBox1->Text = L"Operation";
 			this->comboBox1->SelectedIndexChanged += gcnew System::EventHandler(this, &MyForm::comboBox1_SelectedIndexChanged);
@@ -134,10 +143,9 @@ namespace IPHW {
 			// 
 			this->button1->Font = (gcnew System::Drawing::Font(L"Arial", 12, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->button1->Location = System::Drawing::Point(23, 144);
-			this->button1->Margin = System::Windows::Forms::Padding(4);
+			this->button1->Location = System::Drawing::Point(17, 115);
 			this->button1->Name = L"button1";
-			this->button1->Size = System::Drawing::Size(137, 42);
+			this->button1->Size = System::Drawing::Size(103, 34);
 			this->button1->TabIndex = 0;
 			this->button1->Text = L"Load Image";
 			this->button1->UseVisualStyleBackColor = true;
@@ -152,10 +160,9 @@ namespace IPHW {
 			// 
 			this->button2->Font = (gcnew System::Drawing::Font(L"Arial", 12, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->button2->Location = System::Drawing::Point(168, 144);
-			this->button2->Margin = System::Windows::Forms::Padding(4);
+			this->button2->Location = System::Drawing::Point(126, 115);
 			this->button2->Name = L"button2";
-			this->button2->Size = System::Drawing::Size(139, 42);
+			this->button2->Size = System::Drawing::Size(104, 34);
 			this->button2->TabIndex = 4;
 			this->button2->Text = L"Save Image";
 			this->button2->UseVisualStyleBackColor = true;
@@ -165,10 +172,9 @@ namespace IPHW {
 			// 
 			this->undo_b->Font = (gcnew System::Drawing::Font(L"Arial", 14.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->undo_b->Location = System::Drawing::Point(23, 360);
-			this->undo_b->Margin = System::Windows::Forms::Padding(4);
+			this->undo_b->Location = System::Drawing::Point(17, 288);
 			this->undo_b->Name = L"undo_b";
-			this->undo_b->Size = System::Drawing::Size(85, 49);
+			this->undo_b->Size = System::Drawing::Size(64, 39);
 			this->undo_b->TabIndex = 5;
 			this->undo_b->Text = L"Undo";
 			this->undo_b->UseVisualStyleBackColor = true;
@@ -183,10 +189,9 @@ namespace IPHW {
 				L"Origin Image", L"1", L"2", L"3", L"4", L"5",
 					L"6"
 			});
-			this->comboBox2->Location = System::Drawing::Point(23, 290);
-			this->comboBox2->Margin = System::Windows::Forms::Padding(4);
+			this->comboBox2->Location = System::Drawing::Point(17, 232);
 			this->comboBox2->Name = L"comboBox2";
-			this->comboBox2->Size = System::Drawing::Size(196, 39);
+			this->comboBox2->Size = System::Drawing::Size(148, 32);
 			this->comboBox2->TabIndex = 6;
 			this->comboBox2->Text = L"Hold Image";
 			this->comboBox2->SelectedIndexChanged += gcnew System::EventHandler(this, &MyForm::comboBox2_SelectedIndexChanged);
@@ -195,11 +200,10 @@ namespace IPHW {
 			// 
 			this->threshold->Font = (gcnew System::Drawing::Font(L"Arial", 15.75F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->threshold->Location = System::Drawing::Point(193, 208);
-			this->threshold->Margin = System::Windows::Forms::Padding(4);
+			this->threshold->Location = System::Drawing::Point(145, 166);
 			this->threshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
 			this->threshold->Name = L"threshold";
-			this->threshold->Size = System::Drawing::Size(92, 38);
+			this->threshold->Size = System::Drawing::Size(69, 32);
 			this->threshold->TabIndex = 7;
 			this->threshold->Tag = L"";
 			this->threshold->ValueChanged += gcnew System::EventHandler(this, &MyForm::NumericUpDown1_ValueChanged);
@@ -217,11 +221,9 @@ namespace IPHW {
 			this->crtlBox->Font = (gcnew System::Drawing::Font(L"Arial", 20.25F, static_cast<System::Drawing::FontStyle>((System::Drawing::FontStyle::Bold | System::Drawing::FontStyle::Italic)),
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(0)));
 			this->crtlBox->ForeColor = System::Drawing::SystemColors::ControlText;
-			this->crtlBox->Location = System::Drawing::Point(16, 15);
-			this->crtlBox->Margin = System::Windows::Forms::Padding(4);
+			this->crtlBox->Location = System::Drawing::Point(12, 12);
 			this->crtlBox->Name = L"crtlBox";
-			this->crtlBox->Padding = System::Windows::Forms::Padding(4);
-			this->crtlBox->Size = System::Drawing::Size(332, 920);
+			this->crtlBox->Size = System::Drawing::Size(249, 928);
 			this->crtlBox->TabIndex = 9;
 			this->crtlBox->TabStop = false;
 			this->crtlBox->Text = L"Control Panel";
@@ -232,10 +234,9 @@ namespace IPHW {
 			this->label1->AutoSize = true;
 			this->label1->Font = (gcnew System::Drawing::Font(L"Arial", 18, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->label1->Location = System::Drawing::Point(25, 214);
-			this->label1->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+			this->label1->Location = System::Drawing::Point(19, 171);
 			this->label1->Name = L"label1";
-			this->label1->Size = System::Drawing::Size(149, 35);
+			this->label1->Size = System::Drawing::Size(120, 27);
 			this->label1->TabIndex = 10;
 			this->label1->Text = L"Threshold";
 			this->label1->Click += gcnew System::EventHandler(this, &MyForm::label1_Click);
@@ -244,11 +245,9 @@ namespace IPHW {
 			// 
 			this->resultBox->Font = (gcnew System::Drawing::Font(L"Arial", 20.25F, static_cast<System::Drawing::FontStyle>((System::Drawing::FontStyle::Bold | System::Drawing::FontStyle::Italic)),
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(0)));
-			this->resultBox->Location = System::Drawing::Point(356, 15);
-			this->resultBox->Margin = System::Windows::Forms::Padding(4);
+			this->resultBox->Location = System::Drawing::Point(267, 12);
 			this->resultBox->Name = L"resultBox";
-			this->resultBox->Padding = System::Windows::Forms::Padding(4);
-			this->resultBox->Size = System::Drawing::Size(1500, 920);
+			this->resultBox->Size = System::Drawing::Size(1125, 928);
 			this->resultBox->TabIndex = 9;
 			this->resultBox->TabStop = false;
 			this->resultBox->Text = L" Result";
@@ -257,14 +256,13 @@ namespace IPHW {
 			// 
 			this->AccessibleDescription = L"";
 			this->AccessibleRole = System::Windows::Forms::AccessibleRole::MenuBar;
-			this->AutoScaleDimensions = System::Drawing::SizeF(8, 15);
+			this->AutoScaleDimensions = System::Drawing::SizeF(6, 12);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
 			this->AutoScroll = true;
-			this->ClientSize = System::Drawing::Size(1882, 953);
+			this->ClientSize = System::Drawing::Size(1412, 952);
 			this->Controls->Add(this->resultBox);
 			this->Controls->Add(this->crtlBox);
 			this->Location = System::Drawing::Point(34, 36);
-			this->Margin = System::Windows::Forms::Padding(4);
 			this->Name = L"MyForm";
 			this->Tag = L"";
 			this->Text = L"Display";
@@ -287,6 +285,7 @@ namespace IPHW {
 	private: System::Void groupBox1_Enter(System::Object^  sender, System::EventArgs^  e) {}
 	private: System::Void label1_Click(System::Object^  sender, System::EventArgs^  e) {
 	}
+	private: System::Void comboBox_Coord(System::Object^  sender, System::Windows::Forms::MouseEventArgs^  e);
 	private: System::Void NumericUpDown1_ValueChanged(Object^ sender, EventArgs^ e);
 
 	private: System::Void addHistory(System::Object^  sender, System::EventArgs^  e);
@@ -299,17 +298,13 @@ namespace IPHW {
 	private: System::Void Mean_F(System::Object^  sender, System::EventArgs^  e);								// Mean Filter
 	private: System::Void Median_F(System::Object^  sender, System::EventArgs^  e);								// Median Filter
 	private: System::Void Thres_F(System::Object^  sender, System::EventArgs^  e);								// Threshold Filter
-	private: System::Void Histo(System::Object^  sender, System::EventArgs^  e);								// Get histogram
-	private: System::Void Histo_Eq(System::Object^  sender, System::EventArgs^  e);								// Calculate histogram equalization
+	private: System::Void Histo(System::Object^  sender, System::EventArgs^  e);								// Get histogram and calculate histogram equalization
 	private: System::Void V_Sob(System::Object^  sender, System::EventArgs^  e);								// Vertical Sobel Filter
 	private: System::Void H_Sob(System::Object^  sender, System::EventArgs^  e);								// Herizontal Sobel Filter
 	private: System::Void C_Sob(System::Object^  sender, System::EventArgs^  e);								// Combined Filter
 	private: System::Void ovelap(System::Object^  sender, System::EventArgs^  e);								// Overlap original image with combine sobel result
 	private: System::Void regist(System::Object^  sender, System::EventArgs^  e);								// Registration of two image
-private: System::Void chart1_Click(System::Object^  sender, System::EventArgs^  e) {
-}
-private: System::Void chart1_Click_1(System::Object^  sender, System::EventArgs^  e) {
-}
+
 }; //public
 
 }
