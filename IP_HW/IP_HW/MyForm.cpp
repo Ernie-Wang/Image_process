@@ -344,7 +344,7 @@ System::Void MyForm::C_Sob(System::Object^  sender, System::EventArgs^  e) {				
 				value = 255;
 			f_image->SetPixel(j, i, Color::FromArgb(value, value, value));
 		}
-	}
+	} 
 	imgArr[1] = f_image;
 }
 
@@ -606,11 +606,11 @@ System::Void MyForm::comboBox_Coord(System::Object^  sender, System::Windows::Fo
 		//System::String^ tmp4 = gcnew String(tmp3.c_str());
 		// MessageBox::Show("x: " + tmp2 + ", y: " + tmp4);
 
-		std::string tmp = std::to_string(reg_pt[(int)rec_pt / 4][(int)rec_pt % 4][0]);
-		System::String^ tmp2 = gcnew String(tmp.c_str());
-		std::string tmp3 = std::to_string(reg_pt[(int)rec_pt / 4][(int)rec_pt % 4][1]);
-		System::String^ tmp4 = gcnew String(tmp3.c_str());
-		MessageBox::Show("x: " + tmp2 + ", y: " + tmp4, "Point " + rec_pt);
+		//std::string tmp = std::to_string(reg_pt[(int)rec_pt / 4][(int)rec_pt % 4][0]);
+		//System::String^ tmp2 = gcnew String(tmp.c_str());
+		//std::string tmp3 = std::to_string(reg_pt[(int)rec_pt / 4][(int)rec_pt % 4][1]);
+		//System::String^ tmp4 = gcnew String(tmp3.c_str());
+		//MessageBox::Show("x: " + tmp2 + ", y: " + tmp4, "Point " + rec_pt);
 		rec_pt++;
 	}
 
